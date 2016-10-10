@@ -35,6 +35,8 @@ def get_station_by_name(name):
                 stations.append(node)
     if len(stations) > 1:
         return pick_alternative(stations)
+    elif len(stations) == 0:
+        return ""
     else:
         return stations[0]
 
@@ -44,32 +46,42 @@ def guess_weather(temp, humidity, airpressure):
     prediction = clf.predict([[temp, humidity, airpressure]])
     return prediction
 
+def get_data_from_station(station, data_url):
+    url = data_url.replace("<PLACEHOLDER>", station["key"])
+    try:
+        with urllib.request.urlopen(url) as response:
+            decoded = response.read().decode(response.headers.get_content_charset())
+            data = json.loads(decoded)
+            return float(data["value"][-1]["value"])
+    except urllib.error.HTTPError:
+        return None
+
 def get_temperature_from_station(station):
-    url = temperature_url.replace("<PLACEHOLDER>", station["key"])
-    with urllib.request.urlopen(url) as response:
-        decoded = response.read().decode(response.headers.get_content_charset())
-        data = json.loads(decoded)
-        return float(data["value"][-1]["value"])
+    return get_data_from_station(station, temperature_url)
 
 def get_humidity_from_station(station):
-    url = humidity_url.replace("<PLACEHOLDER>", station["key"])
-    with urllib.request.urlopen(url) as response:
-        decoded = response.read().decode(response.headers.get_content_charset())
-        data = json.loads(decoded)
-        return float(data["value"][-1]["value"])
+    return get_data_from_station(station, humidity_url)
 
 def get_airpressure_from_station(station):
-    url = air_pressure_url.replace("<PLACEHOLDER>", station["key"])
-    with urllib.request.urlopen(url) as response:
-        decoded = response.read().decode(response.headers.get_content_charset())
-        data = json.loads(decoded)
-        return float(data["value"][-1]["value"])
+    return get_data_from_station(station, air_pressure_url)
 
-station = get_station_by_name(input("Enter name of station: "))
+station = get_station_by_name(input("Enter name of a SMHI station or your area: "))
 if station:
     temp = get_temperature_from_station(station)
+    if temp == None:
+        print("Could not fetch temperature from station")
+        quit()
+
     humidity = get_humidity_from_station(station)
+    if humidity == None:
+        print("Could not fetch humidity from station")
+        quit()
+
     airpressure = get_airpressure_from_station(station)
+    if airpressure == None:
+        print("Could not fetch atmospheric pressure from station")
+        quit()
+
     weather = guess_weather(temp, humidity, airpressure)
     print("Weather in %s is probably %s (%d 'C, %d %%rH, %d hPa)" % (station["name"], weather[0], temp, humidity, airpressure))
 else:
